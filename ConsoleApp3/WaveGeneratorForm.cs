@@ -18,7 +18,7 @@ namespace ConsoleApp3
     {
         private ComboBox comboWave;
         private NumericUpDown numFreq;
-        private NumericUpDown numAmp;
+        private NumericUpDown numAmp;   
         private NumericUpDown numDur;
         private NumericUpDown numSampleRate;
         private Button btnPlay;

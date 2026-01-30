@@ -23,11 +23,16 @@ namespace ConsoleApp3
         private NumericUpDown numSampleRate;
         private Button btnPlay;
         private Button btnSave;
+        private Button btnStop;
         private PictureBox picPreview;
         private Label lblFreq, lblAmp, lblDur, lblSR, lblWave;
         // Sine wavetable to speed up sine generation
         private const int SINE_TABLE_SIZE = 2048;
         private static readonly float[] sineTable = CreateSineTable();
+
+        // active playback objects so Stop button can control them
+        private SoundPlayer _player;
+        private MemoryStream _playStream;
 
         private static float[] CreateSineTable()
         {
@@ -42,33 +47,36 @@ namespace ConsoleApp3
         public WaveGeneratorForm()
         {
             Text = "Wave Generator";
-            ClientSize = new Size(720, 360);
+            // make window larger
+            ClientSize = new Size(920, 520);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
 
             lblWave = new Label { Text = "Waveform:", Location = new Point(12, 14), AutoSize = true };
-            comboWave = new ComboBox { Location = new Point(90, 10), Width = 120, DropDownStyle = ComboBoxStyle.DropDownList };
+            comboWave = new ComboBox { Location = new Point(90, 10), Width = 140, DropDownStyle = ComboBoxStyle.DropDownList };
             comboWave.Items.AddRange(new[] { "Sine", "Square", "Triangle", "Sawtooth" });
             comboWave.SelectedIndex = 0;
 
-            lblFreq = new Label { Text = "Frequency (Hz):", Location = new Point(230, 14), AutoSize = true };
-            numFreq = new NumericUpDown { Location = new Point(340, 10), Minimum = 1, Maximum = 20000, Value = 440, Width = 80 };
+            lblFreq = new Label { Text = "Frequency (Hz):", Location = new Point(250, 14), AutoSize = true };
+            numFreq = new NumericUpDown { Location = new Point(360, 10), Minimum = 1, Maximum = 20000, Value = 440, Width = 90 };
 
-            lblAmp = new Label { Text = "Amplitude (%):", Location = new Point(430, 14), AutoSize = true };
-            numAmp = new NumericUpDown { Location = new Point(520, 10), Minimum = 1, Maximum = 100, Value = 80, Width = 60 };
+            lblAmp = new Label { Text = "Amplitude (%):", Location = new Point(470, 14), AutoSize = true };
+            numAmp = new NumericUpDown { Location = new Point(570, 10), Minimum = 1, Maximum = 100, Value = 80, Width = 70 };
 
             lblDur = new Label { Text = "Duration (s):", Location = new Point(12, 46), AutoSize = true };
             numDur = new NumericUpDown { Location = new Point(90, 42), Minimum = 1, Maximum = 30, Value = 2, Width = 80 };
 
             lblSR = new Label { Text = "Sample Rate:", Location = new Point(190, 46), AutoSize = true };
-            numSampleRate = new NumericUpDown { Location = new Point(270, 42), Minimum = 8000, Maximum = 96000, Increment = 11025, Value = 44100, Width = 100 };
+            numSampleRate = new NumericUpDown { Location = new Point(270, 42), Minimum = 8000, Maximum = 96000, Increment = 11025, Value = 44100, Width = 120 };
 
-            btnPlay = new Button { Text = "Generate && Play", Location = new Point(390, 40), Width = 120 };
-            btnSave = new Button { Text = "Save WAV...", Location = new Point(520, 40), Width = 100 };
+            btnPlay = new Button { Text = "Generate && Play", Location = new Point(410, 40), Width = 140 };
+            btnSave = new Button { Text = "Save WAV...", Location = new Point(560, 40), Width = 110 };
+            btnStop = new Button { Text = "Stop", Location = new Point(685, 40), Width = 80, Enabled = false };
 
-            picPreview = new PictureBox { Location = new Point(12, 80), Size = new Size(696, 260), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black };
+            // enlarge preview area and move it down
+            picPreview = new PictureBox { Location = new Point(12, 90), Size = new Size(896, 420), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black };
 
-            Controls.AddRange(new Control[] { lblWave, comboWave, lblFreq, numFreq, lblAmp, numAmp, lblDur, numDur, lblSR, numSampleRate, btnPlay, btnSave, picPreview });
+            Controls.AddRange(new Control[] { lblWave, comboWave, lblFreq, numFreq, lblAmp, numAmp, lblDur, numDur, lblSR, numSampleRate, btnPlay, btnSave, btnStop, picPreview });
 
             comboWave.SelectedIndexChanged += (s, e) => DrawPreview();
             numFreq.ValueChanged += (s, e) => DrawPreview();
@@ -77,12 +85,16 @@ namespace ConsoleApp3
 
             btnPlay.Click += BtnPlay_Click;
             btnSave.Click += BtnSave_Click;
+            btnStop.Click += BtnStop_Click;
 
             DrawPreview();
         }
 
         private void BtnPlay_Click(object sender, EventArgs e)
         {
+            // stop any previous playback
+            StopAndDisposePlayer();
+
             var waveType = (WaveType)comboWave.SelectedIndex;
             int freq = (int)numFreq.Value;
             double amp = (double)numAmp.Value / 100.0;
@@ -90,19 +102,51 @@ namespace ConsoleApp3
             double duration = (double)numDur.Value;
 
             short[] pcm = GenerateWaveSamples(waveType, freq, amp, duration, sampleRate);
-            using (MemoryStream ms = WriteWavToStream(pcm, sampleRate, 1))
+
+            // keep stream and player as fields so Stop can stop them
+            _playStream = WriteWavToStream(pcm, sampleRate, 1);
+            _playStream.Position = 0;
+            _player = new SoundPlayer(_playStream);
+
+            try
             {
-                ms.Position = 0;
-                using (SoundPlayer player = new SoundPlayer(ms))
+                _player.Play();
+                btnPlay.Enabled = false;
+                btnStop.Enabled = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Playback failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                StopAndDisposePlayer();
+                btnPlay.Enabled = true;
+                btnStop.Enabled = false;
+            }
+        }
+
+        private void BtnStop_Click(object sender, EventArgs e)
+        {
+            StopAndDisposePlayer();
+            btnPlay.Enabled = true;
+            btnStop.Enabled = false;
+        }
+
+        private void StopAndDisposePlayer()
+        {
+            try
+            {
+                if (_player != null)
                 {
-                    try
-                    {
-                        player.Play();
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show("Playback failed: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
+                    try { _player.Stop(); } catch { /* ignore */ }
+                    _player.Dispose();
+                    _player = null;
+                }
+            }
+            finally
+            {
+                if (_playStream != null)
+                {
+                    try { _playStream.Dispose(); } catch { /* ignore */ }
+                    _playStream = null;
                 }
             }
         }
@@ -268,6 +312,22 @@ namespace ConsoleApp3
                 ms.Position = 0;
                 return ms;
             }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                StopAndDisposePlayer();
+
+                // dispose preview image if present
+                var img = picPreview?.Image;
+                if (img != null)
+                {
+                    try { img.Dispose(); } catch { /* ignore */ }
+                }
+            }
+            base.Dispose(disposing);
         }
     }
 }

@@ -25,6 +25,19 @@ namespace ConsoleApp3
         private Button btnSave;
         private PictureBox picPreview;
         private Label lblFreq, lblAmp, lblDur, lblSR, lblWave;
+        // Sine wavetable to speed up sine generation
+        private const int SINE_TABLE_SIZE = 2048;
+        private static readonly float[] sineTable = CreateSineTable();
+
+        private static float[] CreateSineTable()
+        {
+            var t = new float[SINE_TABLE_SIZE];
+            for (int i = 0; i < SINE_TABLE_SIZE; i++)
+            {
+                t[i] = (float)Math.Sin(2.0 * Math.PI * i / SINE_TABLE_SIZE);
+            }
+            return t;
+        }
 
         public WaveGeneratorForm()
         {
@@ -168,38 +181,49 @@ namespace ConsoleApp3
         private short[] GenerateWaveSamples(WaveType type, int frequency, double amplitude, double durationSeconds, int sampleRate)
         {
             int sampleCount = (int)(sampleRate * durationSeconds);
+            if (sampleCount <= 0) return new short[0];
+
             short[] samples = new short[sampleCount];
-            double twoPi = 2.0 * Math.PI;
+
+            // phase accumulator in range [0,1)
+            double phase = 0.0;
+            double phaseInc = (double)frequency / (double)sampleRate;
+
+            int tableSize = SINE_TABLE_SIZE;
 
             for (int n = 0; n < sampleCount; n++)
             {
-                double t = (double)n / sampleRate;
+                double p = phase; // normalized phase [0,1)
                 double value = 0.0;
-                double phase = twoPi * frequency * t;
 
                 switch (type)
                 {
                     case WaveType.Sine:
-                        value = Math.Sin(phase);
+                        int idx = (int)(p * tableSize);
+                        if (idx >= tableSize) idx = 0;
+                        value = sineTable[idx];
                         break;
                     case WaveType.Square:
-                        value = Math.Sign(Math.Sin(phase));
+                        value = (p < 0.5) ? 1.0 : -1.0;
                         break;
                     case WaveType.Triangle:
-                        // triangle from sawtooth integration
-                        value = 2.0 * Math.Asin(Math.Sin(phase)) / Math.PI;
+                        // triangle in [-1,1]
+                        value = 2.0 * Math.Abs(2.0 * p - 1.0) - 1.0;
                         break;
                     case WaveType.Sawtooth:
                         // normalized sawtooth (-1..1)
-                        value = 2.0 * (t * frequency - Math.Floor(0.5 + t * frequency));
+                        value = 2.0 * p - 1.0;
                         break;
                 }
 
                 double scaled = value * amplitude;
-                // clamp
                 if (scaled > 1.0) scaled = 1.0;
-                if (scaled < -1.0) scaled = -1.0;
+                else if (scaled < -1.0) scaled = -1.0;
+
                 samples[n] = (short)(scaled * short.MaxValue);
+
+                phase += phaseInc;
+                if (phase >= 1.0) phase -= (int)phase; // wrap, avoid Math.Floor per sample
             }
 
             return samples;

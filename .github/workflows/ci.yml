@@ -34,14 +34,18 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Test (produce TRX)
-        # write TRX into the project TestResults folder so we know the path
+        # write TRX into the project TestResults folder
         run: dotnet test ConsoleApp3.Tests/ConsoleApp3.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=ConsoleApp3.Tests/TestResults/test_results.trx"
 
-      - name: Show test results (debug)
-        run: dir ConsoleApp3.Tests\TestResults || echo "No TestResults folder found"
+      - name: Show generated TRX files (debug)
+        shell: powershell
+        run: |
+          Write-Host "Listing all .trx files under the workspace:"
+          Get-ChildItem -Path . -Filter *.trx -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_.FullName }
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: ConsoleApp3.Tests/TestResults/test_results.trx
+          path: |
+            **/*.trx

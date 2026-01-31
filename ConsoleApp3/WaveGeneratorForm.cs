@@ -47,34 +47,36 @@ namespace ConsoleApp3
         public WaveGeneratorForm()
         {
             Text = "Wave Generator";
-            // make window larger
+            // allow resizing and maximizing
             ClientSize = new Size(920, 520);
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
+            MinimumSize = new Size(640, 480);
+            StartPosition = FormStartPosition.CenterScreen;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
 
             lblWave = new Label { Text = "Waveform:", Location = new Point(12, 14), AutoSize = true };
-            comboWave = new ComboBox { Location = new Point(90, 10), Width = 140, DropDownStyle = ComboBoxStyle.DropDownList };
+            comboWave = new ComboBox { Location = new Point(90, 10), Width = 140, DropDownStyle = ComboBoxStyle.DropDownList, Anchor = AnchorStyles.Top | AnchorStyles.Left };
             comboWave.Items.AddRange(new[] { "Sine", "Square", "Triangle", "Sawtooth" });
             comboWave.SelectedIndex = 0;
 
             lblFreq = new Label { Text = "Frequency (Hz):", Location = new Point(250, 14), AutoSize = true };
-            numFreq = new NumericUpDown { Location = new Point(360, 10), Minimum = 1, Maximum = 20000, Value = 440, Width = 90 };
+            numFreq = new NumericUpDown { Location = new Point(360, 10), Minimum = 1, Maximum = 20000, Value = 440, Width = 90, Anchor = AnchorStyles.Top | AnchorStyles.Left };
 
             lblAmp = new Label { Text = "Amplitude (%):", Location = new Point(470, 14), AutoSize = true };
-            numAmp = new NumericUpDown { Location = new Point(570, 10), Minimum = 1, Maximum = 100, Value = 80, Width = 70 };
+            numAmp = new NumericUpDown { Location = new Point(570, 10), Minimum = 1, Maximum = 100, Value = 80, Width = 70, Anchor = AnchorStyles.Top | AnchorStyles.Left };
 
             lblDur = new Label { Text = "Duration (s):", Location = new Point(12, 46), AutoSize = true };
-            numDur = new NumericUpDown { Location = new Point(90, 42), Minimum = 1, Maximum = 30, Value = 2, Width = 80 };
+            numDur = new NumericUpDown { Location = new Point(90, 42), Minimum = 1, Maximum = 30, Value = 2, Width = 80, Anchor = AnchorStyles.Top | AnchorStyles.Left };
 
             lblSR = new Label { Text = "Sample Rate:", Location = new Point(190, 46), AutoSize = true };
-            numSampleRate = new NumericUpDown { Location = new Point(270, 42), Minimum = 8000, Maximum = 96000, Increment = 11025, Value = 44100, Width = 120 };
+            numSampleRate = new NumericUpDown { Location = new Point(270, 42), Minimum = 8000, Maximum = 96000, Increment = 11025, Value = 44100, Width = 120, Anchor = AnchorStyles.Top | AnchorStyles.Left };
 
-            btnPlay = new Button { Text = "Generate && Play", Location = new Point(410, 40), Width = 140 };
-            btnSave = new Button { Text = "Save WAV...", Location = new Point(560, 40), Width = 110 };
-            btnStop = new Button { Text = "Stop", Location = new Point(685, 40), Width = 80, Enabled = false };
+            btnPlay = new Button { Text = "Generate && Play", Location = new Point(410, 40), Width = 140, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            btnSave = new Button { Text = "Save WAV...", Location = new Point(560, 40), Width = 110, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            btnStop = new Button { Text = "Stop", Location = new Point(685, 40), Width = 80, Enabled = false, Anchor = AnchorStyles.Top | AnchorStyles.Right };
 
-            // enlarge preview area and move it down
-            picPreview = new PictureBox { Location = new Point(12, 90), Size = new Size(896, 420), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black };
+            // preview resizes with the window
+            picPreview = new PictureBox { Location = new Point(12, 90), Size = new Size(896, 420), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
 
             Controls.AddRange(new Control[] { lblWave, comboWave, lblFreq, numFreq, lblAmp, numAmp, lblDur, numDur, lblSR, numSampleRate, btnPlay, btnSave, btnStop, picPreview });
 
